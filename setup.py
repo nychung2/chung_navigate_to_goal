@@ -20,9 +20,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'object_ranger: chung_navigate_to_goal.get_object_range:main',
-            'go_to_goal: chung_navigate_to_goal.go_to_goal:main',
-            'odom_logger: chung_navigate_to_goal.print_fixed_odometry:main'
+            'object_ranger = chung_navigate_to_goal.get_object_range:main',
+            'go_to_goal = chung_navigate_to_goal.go_to_goal:main',
+            'odom_logger = chung_navigate_to_goal.print_fixed_odometry:main'
         ],
     },
 )

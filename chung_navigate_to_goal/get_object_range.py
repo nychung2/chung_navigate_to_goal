@@ -43,22 +43,35 @@ class ObjectRange(Node):
         self.publish_message(vector)
 
     def detect_obstacles(self, lidar_data):
-        # angle window of interest: [something rad, something rad]
-        target_range = [0, 2*math.pi]
+        # current angle window of interest: +/- 90 degrees
+        interested_range = [3*math.pi/2, math.pi/2]
+        interested_dist = 0.5 # m (anything less than 0.33 m should report)
 
         angle_min = lidar_data.angle_min
         angle_max = lidar_data.angle_max
         angle_inc = lidar_data.angle_increment
-        index_range = [int((target_range[0] - angle_min) / angle_inc), int((angle_max - target_range[1]) / angle_inc)]
+        index_range = [int((interested_range[1] - angle_min) / angle_inc), int((angle_max - interested_range[0]) / angle_inc)]
         distance_data = np.array(lidar_data.ranges)
-        l_side = distance_data[0:0]
-        r_side = distance_data[0:0]
-        return None
+        r_side = distance_data[0:index_range[0]]
+        l_side = distance_data[index_range[1]:-1]
+        #r_side[np.isnan(r_side)] = 10000
+        #l_side[np.isnan(l_side)] = 10000
+        combined = np.concatenate((r_side, l_side))
+        if np.min(combined) <= interested_dist:
+            min_index = np.argmin(combined)
+            angle = min_index * angle_inc + angle_min
+            if angle > math.pi/2:
+                angle += math.pi
+            x = combined[min_index] * math.cos(angle)
+            y = combined[min_index] * math.sin(angle)
+            return [x, y]
+        else:
+            return None
 
     def publish_message(self, vector):
         msg = Vector3()
         if vector == None:
-            msg.x = -1
+            msg.x = -1.0
         else:
             msg.x = vector[0]
             msg.y = vector[1]

@@ -12,12 +12,17 @@ class GoalController(Node):
     def __init__(self):
         super().__init__('goal_controller')
 
+        self.goals = ((1.5, 0.0), (1.5, 1.4), (0.0, 1.4))
+        #self.goals = ((0.5, 0.0), (0.5, 0.4), (0.0, 0.4))
+        self.curr_index = 0
+
         self.Init = True
         self.Init_pos = Point()
         self.Init_pos.x = 0.0
         self.Init_pos.y = 0.0
         self.Init_ang = 0.0
         self.globalPos = Point()
+        self.globalAng = 0
 
         self.rotate_thr = 10 # rad
         self.linear_thr = 10 # rad
@@ -44,16 +49,93 @@ class GoalController(Node):
 
     def odom_callback(self, location):
         self.update_Odometry(location)
-        
 
     def obstacle_callback(self, vector):
-        if vector.x == -1: # no obstacles in way, proceed to goal. 
-            response = ()
-        else: # there is an obstacle in the way somwhere
-            angle = math.atan(vector.x / vector.y)
-            if abs(angle) < self.rotate_thr # rotate away
-            else: # move straight 
-            response = ()
+        state = self.get_state(vector)
+        if state == 0: # go to goal
+            #self.get_logger().info('Currently trying to go to goal')
+            self.go_to_goal()
+        elif state == 1: # dodge goal
+            self.get_logger().info('Currently running away from my obstacle')
+            self.dodge_goal(vector)
+        else: #reached goal
+            self.publish_message((0.0,0.0))
+
+    def get_state(self, vector):
+        x_goal = abs(self.globalPos.x - self.goals[self.curr_index][0])
+        y_goal = abs(self.globalPos.y - self.goals[self.curr_index][1])
+        if x_goal < 0.01 and y_goal < 0.01:
+            self.curr_index += 1
+
+        if self.curr_index > 2:
+            return 5
+        
+        if vector.x == -1.0:
+            return 0
+        else:
+            return 1
+
+    def go_to_goal(self):
+        target = self.goals[self.curr_index]
+        my_location = self.globalPos
+        my_orientation = self.globalAng
+        self.get_logger().info("orientation: " + str(my_orientation))
+        dx = target[0] - my_location.x
+        dy = target[1] - my_location.y
+        target_distance = math.sqrt((dx ** 2) + (dy ** 2))
+        target_angle = math.atan2(dy,dx)
+
+        e = target_angle - my_orientation
+        self.get_logger().info(str(target_distance) + " " + str(e))
+        if abs(e) > 0.0436: # roughly +/- 2.5 degrees
+            kpa = 2
+            ua = kpa * e
+            if ua > 1.8:
+                ua = 1.8
+            if ua < -1.8:
+                ua = -1.8
+            ul = 0.0
+        elif abs(target_distance) > 0.001: # +/- 0.05m or 8cm 
+            kpl = 40
+            ul = kpl * target_distance
+            if ul > 0.15:
+                ul = 0.15
+            if ul < - 0.15:
+                ul = -0.15
+            ua = 0.0
+        else:
+            ul = 0.0
+            ua = 0.0
+        response = (ul, ua)
+        self.get_logger().info("sending: " + str(response))
+        self.publish_message(response)
+
+    def dodge_goal(self, vector): # x, y vector
+        angle = math.atan(vector.y / vector.x)
+        if angle > 0:
+            target_angle = math.pi/2
+        else: 
+            target_angle = -math.pi/2
+        
+        e = target_angle - self.globalAng
+        if abs(e) > 0.0873: # roughly +/- 5 degrees
+            kpa = 2
+            ua = kpa * e
+            if ua > 2.0:
+                ua = 2.0
+            if ua < -2.0:
+                ua = -2.0
+            ul = 0.0
+        else:
+            if e > 0.0174: # 1 degree
+                kpa = 2
+                ua = kpa * e
+                if ua > 2.0:
+                    ua = 2.0
+                if ua < -2.0:
+                    ua = -2.0
+            ul = 0.15
+        response = (ua, ul)
         self.publish_message(response)
 
     def publish_message(self, response):
@@ -85,8 +167,10 @@ class GoalController(Node):
         self.globalPos.x = Mrot.item((0,0))*position.x + Mrot.item((0,1))*position.y - self.Init_pos.x
         self.globalPos.y = Mrot.item((1,0))*position.x + Mrot.item((1,1))*position.y - self.Init_pos.y
         self.globalAng = orientation - self.Init_ang
-    
-        
+        if self.globalAng < -math.pi:
+            self.globalAng += 2*math.pi
+        elif self.globalAng > math.pi:
+            self.globalAng -= 2*math.pi
 
 def main():
     rclpy.init()
