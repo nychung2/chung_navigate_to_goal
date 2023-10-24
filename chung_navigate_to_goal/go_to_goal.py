@@ -62,13 +62,13 @@ class GoalController(Node):
             self.publish_message((0.0,0.0))
 
     def get_state(self, vector):
+        if self.curr_index > 2:
+            return 5
+        
         x_goal = abs(self.globalPos.x - self.goals[self.curr_index][0])
         y_goal = abs(self.globalPos.y - self.goals[self.curr_index][1])
         if x_goal < 0.01 and y_goal < 0.01:
             self.curr_index += 1
-
-        if self.curr_index > 2:
-            return 5
         
         if vector.x == -1.0:
             return 0
@@ -90,10 +90,10 @@ class GoalController(Node):
         if abs(e) > 0.0436: # roughly +/- 2.5 degrees
             kpa = 2
             ua = kpa * e
-            if ua > 1.8:
-                ua = 1.8
-            if ua < -1.8:
-                ua = -1.8
+            if ua > 1.5:
+                ua = 1.5
+            if ua < -1.5:
+                ua = -1.5
             ul = 0.0
         elif abs(target_distance) > 0.001: # +/- 0.05m or 8cm 
             kpl = 40
@@ -110,8 +110,8 @@ class GoalController(Node):
         self.get_logger().info("sending: " + str(response))
         self.publish_message(response)
 
-    def dodge_goal(self, vector): # x, y vector
-        angle = math.atan(vector.y / vector.x)
+    def dodge_goal(self, vector): # wall running? idk i think it is lol. 
+        angle = vector[1]
         if angle > 0:
             target_angle = math.pi/2
         else: 
@@ -121,10 +121,10 @@ class GoalController(Node):
         if abs(e) > 0.0873: # roughly +/- 5 degrees
             kpa = 2
             ua = kpa * e
-            if ua > 2.0:
-                ua = 2.0
-            if ua < -2.0:
-                ua = -2.0
+            if ua > 1.5:
+                ua = 1.5
+            if ua < -1.5:
+                ua = -1.5
             ul = 0.0
         else:
             if e > 0.0174: # 1 degree
@@ -169,7 +169,7 @@ class GoalController(Node):
         self.globalAng = orientation - self.Init_ang
         if self.globalAng < -math.pi:
             self.globalAng += 2*math.pi
-        elif self.globalAng > math.pi:
+        elif self.globalAng >= math.pi:
             self.globalAng -= 2*math.pi
 
 def main():

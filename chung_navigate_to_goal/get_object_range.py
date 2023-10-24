@@ -62,9 +62,8 @@ class ObjectRange(Node):
             angle = min_index * angle_inc + angle_min
             if angle > math.pi/2:
                 angle += math.pi
-            x = combined[min_index] * math.cos(angle)
-            y = combined[min_index] * math.sin(angle)
-            return [x, y]
+            dist = combined[min_index]
+            return [dist, -1.0 * angle]
         else:
             return None
 
