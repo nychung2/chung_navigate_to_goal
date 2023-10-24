@@ -47,7 +47,7 @@ class ObjectRange(Node):
         #interested_range = [3*math.pi/2, math.pi/2] # 3pi/2 to 2pi and 0 to pi/2
         #interested_range = [3*math.pi/2 + math.pi/24, math.pi/2-math.pi/24]
         interested_range = [2*math.pi - 1.047, 1.047]
-        interested_dist = 0.33 # m (anything less than 0.33 m should report)
+        interested_dist = 0.40 # m (anything less than 0.33 m should report)
 
         angle_min = lidar_data.angle_min
         angle_max = lidar_data.angle_max

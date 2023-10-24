@@ -5,6 +5,7 @@ from geometry_msgs.msg import Vector3, Twist, Point
 
 import math
 import numpy as np
+import time
 
 class GoalController(Node):
     '''
@@ -26,6 +27,8 @@ class GoalController(Node):
 
         self.rotate_thr = 10 # rad
         self.linear_thr = 10 # rad
+
+        self.loop_rate = self.create_rate(0.1, self.get_clock())
 
         self.obstacle_subscriber = self.create_subscription(
             Vector3,
@@ -69,6 +72,7 @@ class GoalController(Node):
         y_goal = abs(self.globalPos.y - self.goals[self.curr_index][1])
         if x_goal < 0.01 and y_goal < 0.01:
             self.curr_index += 1
+            self.loop_rate.sleep()
         
         if vector.x == -1.0:
             return 0
@@ -83,15 +87,30 @@ class GoalController(Node):
         dx = target[0] - my_location.x
         dy = target[1] - my_location.y
         target_distance = math.sqrt((dx ** 2) + (dy ** 2))
+        #target_distance = math.sqrt(target[0] ** 2 + target[1] ** 2) - math.sqrt(my_location.x ** 2 + my_location.y ** 2)
         target_angle = math.atan2(dy,dx)
 
-        if self.curr_index == 2:
+        # try this if below doesnt work
+        # margin = 0.04
+        # if abs(self.globalAng) < math.pi + margin:
+        #     if self.globalAng > 0:
+        #         if target_angle < 0:
+        #             target_angle *= -1
+        #     elif self.globalAng < 0:
+        #         if target_angle > 0:
+        #             target_angle *= -1
+
+        if self.curr_index == 2:        
             epos = target_angle - my_orientation
-            eneg = -target_angle - my_orientation
+            eneg = -target_angle + my_orientation #-target_angle - my_orientation
             arr = np.array([epos, eneg])
+            self.get_logger().info("errors: " + str(arr) + " orientation: " + str(my_orientation))
             e = arr[np.argmin(np.abs(arr))]
+            target_distance *= -1
         else:
             e = target_angle - my_orientation
+
+        #e = target_angle - my_orientation
         self.get_logger().info(str(target_distance) + " " + str(e))
         if abs(e) > 0.349: # roughly +/- 20 degrees
             kpa = 2
@@ -113,10 +132,10 @@ class GoalController(Node):
             ua = 0.0
         if abs(target_distance) > 0.001: # +/- 0.05m or 8cm 
             kpl = 50
-            ul = kpl * target_distance
+            ul = kpl * abs(target_distance)
             if ul > 0.1:
                 ul = 0.1
-            if ul < - 0.1:
+            if ul < -0.1:
                 ul = -0.1
         else:
             ul = 0.0
@@ -127,13 +146,13 @@ class GoalController(Node):
 
     def dodge_goal(self, vector): # wall running? idk i think it is lol. 
         angle = vector.y
-        target_angle = 1.0#math.pi/2
+        target_angle = 0.9 #math.pi/2
         # if angle > 0:
         #     target_angle = math.pi/2
-        # else: 
+        # else:  
         #     target_angle = -1 * math.pi/2
         
-        e = target_angle - angle
+        e = target_angle + angle
         self.get_logger().info("angle error: " + str(e))
         if abs(e) > 0.1745: # roughly +/- 10 degrees
             kpa = 2
