@@ -52,7 +52,7 @@ class GoalController(Node):
 
     def obstacle_callback(self, vector):
         state = self.get_state(vector)
-        if state == 0: # go to goal
+        if state == 0: #or self.curr_index == 0: # go to goal
             #self.get_logger().info('Currently trying to go to goal')
             self.go_to_goal()
         elif state == 1: # dodge goal
@@ -79,63 +79,83 @@ class GoalController(Node):
         target = self.goals[self.curr_index]
         my_location = self.globalPos
         my_orientation = self.globalAng
-        self.get_logger().info("orientation: " + str(my_orientation))
+        self.get_logger().info("target: " + str(target))
         dx = target[0] - my_location.x
         dy = target[1] - my_location.y
         target_distance = math.sqrt((dx ** 2) + (dy ** 2))
         target_angle = math.atan2(dy,dx)
 
-        e = target_angle - my_orientation
+        if self.curr_index == 2:
+            epos = target_angle - my_orientation
+            eneg = -target_angle - my_orientation
+            arr = np.array([epos, eneg])
+            e = arr[np.argmin(np.abs(arr))]
+        else:
+            e = target_angle - my_orientation
         self.get_logger().info(str(target_distance) + " " + str(e))
+        if abs(e) > 0.349: # roughly +/- 20 degrees
+            kpa = 2
+            ua = kpa * e
+            if ua > 1.0:
+                ua = 1.0
+            if ua < -1.0:
+                ua = -1.0
+            self.publish_message((0.0, ua))
         if abs(e) > 0.0436: # roughly +/- 2.5 degrees
             kpa = 2
             ua = kpa * e
-            if ua > 1.5:
-                ua = 1.5
-            if ua < -1.5:
-                ua = -1.5
-            ul = 0.0
-        elif abs(target_distance) > 0.001: # +/- 0.05m or 8cm 
-            kpl = 40
-            ul = kpl * target_distance
-            if ul > 0.15:
-                ul = 0.15
-            if ul < - 0.15:
-                ul = -0.15
+            if ua > 1.0:
+                ua = 1.0
+            if ua < -1.0:
+                ua = -1.0
+            #ul = 0.0
+        else:
             ua = 0.0
+        if abs(target_distance) > 0.001: # +/- 0.05m or 8cm 
+            kpl = 50
+            ul = kpl * target_distance
+            if ul > 0.1:
+                ul = 0.1
+            if ul < - 0.1:
+                ul = -0.1
         else:
             ul = 0.0
-            ua = 0.0
+            #ua = 0.0
         response = (ul, ua)
         self.get_logger().info("sending: " + str(response))
         self.publish_message(response)
 
     def dodge_goal(self, vector): # wall running? idk i think it is lol. 
-        angle = vector[1]
-        if angle > 0:
-            target_angle = math.pi/2
-        else: 
-            target_angle = -math.pi/2
+        angle = vector.y
+        target_angle = 1.0#math.pi/2
+        # if angle > 0:
+        #     target_angle = math.pi/2
+        # else: 
+        #     target_angle = -1 * math.pi/2
         
-        e = target_angle - self.globalAng
-        if abs(e) > 0.0873: # roughly +/- 5 degrees
+        e = target_angle - angle
+        self.get_logger().info("angle error: " + str(e))
+        if abs(e) > 0.1745: # roughly +/- 10 degrees
             kpa = 2
             ua = kpa * e
-            if ua > 1.5:
-                ua = 1.5
-            if ua < -1.5:
-                ua = -1.5
-            ul = 0.0
+            if ua > 1.0:
+                ua = 1.0
+            if ua < -1.0:
+                ua = -1.0
+            ul = 0.05
         else:
-            if e > 0.0174: # 1 degree
+            if e > 0.0463: # 2.5 degree
                 kpa = 2
                 ua = kpa * e
-                if ua > 2.0:
-                    ua = 2.0
-                if ua < -2.0:
-                    ua = -2.0
-            ul = 0.15
-        response = (ua, ul)
+                if ua > 1.0:
+                    ua = 1.0
+                if ua < -1.0:
+                    ua = -1.0
+            else:
+                ua = 0.0
+            ul = 0.1
+        response = (ul, ua)
+        self.get_logger().info("response: " + str(response))
         self.publish_message(response)
 
     def publish_message(self, response):
@@ -171,6 +191,7 @@ class GoalController(Node):
             self.globalAng += 2*math.pi
         elif self.globalAng >= math.pi:
             self.globalAng -= 2*math.pi
+
 
 def main():
     rclpy.init()
