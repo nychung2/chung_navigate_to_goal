@@ -17,7 +17,8 @@ class GoalController(Node):
     def __init__(self):
         super().__init__('goal_controller')
 
-        self.goals = ((1.5, 0.0), (1.5, 1.4), (0.0, 1.4))
+        #self.goals = ((1.5, 0.0), (1.5, 1.4), (0.0, 1.4))
+        self.goals = ((1.65, 0,0), (1.65, 1.54), (0.0, 1.54))
         #self.goals = ((0.5, 0.0), (0.5, 0.4), (0.0, 0.4))
         self.curr_index = 0
 
@@ -31,6 +32,7 @@ class GoalController(Node):
 
         self.rotate_thr = 10 # rad
         self.linear_thr = 10 # rad
+        self.start = True
 
         #self.loop_rate = self.create_rate(0.1, self.get_clock())
 
@@ -80,15 +82,25 @@ class GoalController(Node):
             self.publish_message((0.0,0.0))
 
     def get_state(self, vector):
+        if self.start == True:
+            for _ in range(30):
+                self.publish_message((0.0,0.0))
+            self.start = False
+
         if self.curr_index > 2:
             return 5
         
         x_goal = abs(self.globalPos.x - self.goals[self.curr_index][0])
         y_goal = abs(self.globalPos.y - self.goals[self.curr_index][1])
-        if x_goal < 0.01 and y_goal < 0.01:
+        #if x_goal < 0.01 and y_goal < 0.01:
+        if math.sqrt(x_goal**2 + y_goal**2) < 0.012:
             self.curr_index += 1
+            for _ in range(10):
+                self.publish_message((0.0,0.0))
             time.sleep(10)
             #self.loop_rate.sleep()
+        if self.curr_index == 3:
+            raise SystemExit
         
         if vector.x == -1.0:
             return 0
@@ -142,7 +154,7 @@ class GoalController(Node):
             if ua < -1.0:
                 ua = -1.0
             self.publish_message((0.0, ua))
-        if abs(e) > 0.0436: # roughly +/- 2.5 degrees
+        if abs(e) > 0.02: # roughly +/- 1 degrees
             kpa = 2
             ua = kpa * e
             if ua > 1.0:
@@ -152,7 +164,7 @@ class GoalController(Node):
             #ul = 0.0
         else:
             ua = 0.0
-        if abs(target_distance) > 0.001: # +/- 0.05m or 8cm 
+        if abs(target_distance) > 0.0001: # +/- 0.05m or 8cm 
             kpl = 50
             ul = kpl * abs(target_distance)
             if ul > 0.1:
@@ -240,7 +252,7 @@ def main():
     try:
         rclpy.spin(goal_controller)
     except SystemExit:
-        rclpy.get_logger("Goal Controller Node").info("Shutting Down")
+        goal_controller.get_logger().info("Shutting Down")
     goal_controller.destroy_node()
     rclpy.shutdown()
 
